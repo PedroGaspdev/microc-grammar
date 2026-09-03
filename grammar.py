@@ -159,9 +159,61 @@ class Grammar:
         self.build_follow()
         self.build_start()
 
-    def eliminate_direct_left_recursion(self, nonterminal: str) -> bool:
+    def eliminate_direct_left_recursion(self, nonterminal: str) -> bool:       
         """Elimine a recursão direta de um não terminal, se existir."""
-        raise NotImplementedError("implemente a remoção de recursão direta")
+
+        # Transformar regra recursiva direta:
+        # A → Aα1 | ... | Aαm | β1 | ... | βn
+
+        # Em:
+        # A  → β1A′ | ... | βnA′ ,
+        # A′ → α1A′ | ... | αmA′ | ε.
+        
+        # Lista de produções de um simbilo nao-terminal
+        productions = self.productions_for(nonterminal)
+
+        # Listas vazias inicialmente
+        alphas: list[tuple[str, ...]] = []                                                                                                            
+        betas: list[tuple[str, ...]] = []  
+
+        # Separar produções recursivas (alphas) e não-recursivas (betas)                                                                           
+        for production in productions:                                                                                                                
+            if production.rhs and production.rhs[0] == nonterminal:                                                                                   
+                # Recursao a esquerda: A -> A alpha  
+                # Então guardo na lista de alphas                                                                                              
+                alphas.append(production.rhs[1:])                                                                                                     
+            else:                                                                                                                                     
+                # É o caso: A -> beta   
+                # Então guardo na lista de betas                                                                                                           
+                betas.append(production.rhs)  
+
+        # Se não houver produções recursivas, nada precisa ser feito                                                                               
+        if not alphas:                                                                                                                                
+            return False                                                                                                                              
+                                                                                                                                                        
+        # Cria o novo símbolo e insere na gramática    
+        # obs: helper corresponde ao A' que será criado                                                                               
+        helper = self._fresh_nonterminal(nonterminal) 
+        # Adiciona a regra logo depois                                                                                                 
+        self._insert_nonterminal_after(nonterminal, helper)                                                                                           
+                                                                                                                                                        
+        # Novas alternativas para A: beta A'                                                                                                       
+        new_a_productions: list[tuple[str, ...]] = [                                                                                                  
+            beta + (helper,) for beta in betas                                                                                                        
+        ]                                                                                                                                             
+                                                                                                                                                        
+        # Novas alternativas para A': alpha A' | ε                                                                                                 
+        new_helper_productions: list[tuple[str, ...]] = [                                                                                             
+            alpha + (helper,) for alpha in alphas                                                                                                     
+        ]  
+        # Adiciona ε no final                                                                                                                                           
+        new_helper_productions.append(())                                                                                 
+                                                                                                                                                        
+        # Atualiza as produções na gramática                                                                                                       
+        self._replace_productions(nonterminal, new_a_productions) 
+        self._replace_productions(helper, new_helper_productions)                                                                                     
+                                                                                                                                                        
+        return True                                         
 
     def eliminate_all_direct_left_recursion(self) -> None:
         for nonterminal in list(self.nonterminals):

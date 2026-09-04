@@ -138,13 +138,64 @@ class Grammar:
             candidate += "'"
         return candidate
 
+
     def first_of_sequence(self, symbols: tuple[str, ...]) -> set[str]:
         """Calcule FIRST para uma sequência de zero ou mais símbolos."""
-        raise NotImplementedError("implemente FIRST de uma sequência")
+
+        lista_first = set()
+        tudo_nulo = True
+
+        for symbol in symbols:
+
+            if symbol not in self.nonterminals:
+                lista_first.add(symbol)
+                tudo_nulo = False
+                break
+
+            else:
+
+                aux = self.first[symbol]
+                lista_first.update(aux - {EPSILON} )
+
+                if EPSILON not in aux:
+                    tudo_nulo = False
+                    break
+
+        if tudo_nulo:
+            lista_first.add(EPSILON)
+
+        return lista_first
+
+
+
+
+
 
     def build_first(self) -> None:
         """Preencha self.first por iteração até um ponto fixo."""
-        raise NotImplementedError("implemente FIRST")
+
+        teve_alteracao = True
+
+        for nonterminal in list(self.nonterminals):
+            self.first[nonterminal] = set()
+
+        while(teve_alteracao):
+            teve_alteracao = False
+
+            for nt in self.nonterminals:
+                for production in self.productions_for(nt):
+
+                    lista = self.first_of_sequence(production.rhs)
+
+                    if not lista.issubset(self.first[nt]):
+                        self.first[nt].update(lista)
+                        teve_alteracao = True
+
+
+
+
+
+    
 
     def build_follow(self) -> None:
         """Preencha self.follow; FIRST deve ter sido calculado antes."""

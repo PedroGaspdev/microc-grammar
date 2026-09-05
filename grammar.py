@@ -195,15 +195,72 @@ class Grammar:
 
 
 
-    
-
     def build_follow(self) -> None:
         """Preencha self.follow; FIRST deve ter sido calculado antes."""
-        raise NotImplementedError("implemente FOLLOW")
+
+        for nt in self.nonterminals:
+            self.follow[nt] = set()
+
+        self.follow[self.start_symbol].add(EOF)
+
+        teve_alteracao = True
+
+        while teve_alteracao:
+            teve_alteracao = False
+
+            for nonterminal in self.nonterminals:
+                for production in self.productions_for(nonterminal):
+                    # 1. Trailer recebe uma CÓPIA do FOLLOW(A)
+                    trailer = set(self.follow[nonterminal])
+                    fila = production.rhs  # lado direito: beta_1 beta_2 ... beta_k
+
+                    # 2. Percorre da direita para a esquerda: do último até o índice 0
+                    for i in range(len(fila) - 1, -1, -1):
+                        symbol = fila[i]
+
+                        # 3. Se o símbolo for Não-Terminal, atualiza FOLLOW dele
+                        if symbol in self.nonterminals:
+                            tamanho_antes = len(self.follow[symbol])
+                            self.follow[symbol].update(trailer)
+                            if len(self.follow[symbol]) > tamanho_antes:
+                                teve_alteracao = True
+
+                            # 4. Atualiza trailer antes de ir para o próximo símbolo
+                            first_symbol = self.first[symbol]
+                            if EPSILON in first_symbol:
+                                # Caso 1: NT que gera EPSILON -> une (FIRST - {EPSILON})
+                                trailer.update(first_symbol - {EPSILON})
+                            else:
+                                # Caso 2: NT que NÃO gera EPSILON -> sobrescreve
+                                trailer = set(first_symbol)
+
+                        # 4 (cont.). Se for Terminal (ignora caso o símbolo da regra seja o próprio EPSILON)
+                        elif symbol != EPSILON:
+                            # Caso 3: Terminal -> sobrescreve com {symbol}
+                            trailer = {symbol}
+                                
+
+
 
     def build_start(self) -> None:
         """Associe a cada produção seu conjunto START."""
-        raise NotImplementedError("implemente START")
+
+        for production in self.productions:
+            # 1. Obtém o FIRST da sequência inteira à direita (fila)
+            first_da_fila = self.first_of_sequence(production.rhs)
+            
+            # 2. Cria o conjunto base ignorando o EPSILON
+            start_set = set(first_da_fila - {EPSILON})
+            
+            # 3. Se a produção inteira for anulável, herda o FOLLOW do chefe
+            if EPSILON in first_da_fila:
+                start_set.update(self.follow[production.lhs])
+                
+            # 4. Atribui o conjunto final à produção correspondente
+            self.start[production] = start_set
+                
+                    
+
 
     def build_sets(self) -> None:
         self.build_first()
